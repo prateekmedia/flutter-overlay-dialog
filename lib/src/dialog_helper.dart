@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:overlay_dialog/overlay_dialog.dart';
@@ -7,7 +8,7 @@ import 'package:overlay_dialog/src/animation/appear_widget.dart';
 
 ///Helper class to handle dialog appearance
 ///Keeps the latest dialog and closes the previous dialog automatically
-class DialogHelper {
+class DialogHelper implements PopEntry {
   static const Color BACKGROUND_COLOR = Color(0x61000000);
   static const Duration DEFAULT_DURATION = Duration(milliseconds: 150);
 
@@ -23,15 +24,17 @@ class DialogHelper {
   List<IndexedData<Future<bool> Function()>> _currentCallback = [];
   List<IndexedData<StreamController<double>>> _currentController = [];
 
-  Future<bool> onWillPop() {
-    return _currentCallback.length == 0 ? Future.value(true) : _currentCallback.last.data.call();
-  }
-
   // Shows the dialog
-  void show(BuildContext context, DialogWidget dialog, {bool rootOverlay = true, int? id, bool hidePrevious = true, Color overlayColor = BACKGROUND_COLOR}) {
+  void show(BuildContext context, DialogWidget dialog,
+      {bool rootOverlay = true,
+      int? id,
+      bool hidePrevious = true,
+      Color overlayColor = BACKGROUND_COLOR}) {
     if (hidePrevious || id == null) hideImmediate(context);
 
-    OverlayState? overlayState = rootOverlay ? context.findRootAncestorStateOfType<OverlayState>() : context.findAncestorStateOfType<OverlayState>();
+    OverlayState? overlayState = rootOverlay
+        ? context.findRootAncestorStateOfType<OverlayState>()
+        : context.findAncestorStateOfType<OverlayState>();
 
     if (dialog.closable) {
       _currentCallback.add(IndexedData<Future<bool> Function()>(
@@ -41,11 +44,12 @@ class DialogHelper {
             return Future.value(false);
           }));
     } else {
-      _currentCallback.add(IndexedData<Future<bool> Function()>(id: id, data: () => Future.value(true)));
+      _currentCallback.add(IndexedData<Future<bool> Function()>(
+          id: id, data: () => Future.value(true)));
     }
 
     if (_currentCallback.length == 1) {
-      ModalRoute.of(context)?.addScopedWillPopCallback(onWillPop);
+      ModalRoute.of(context)?.registerPopEntry(this);
     }
 
     // ignore: close_sinks
@@ -70,7 +74,8 @@ class DialogHelper {
       ),
     );
 
-    _currentController.add(IndexedData<StreamController<double>>(id: id, data: controller));
+    _currentController
+        .add(IndexedData<StreamController<double>>(id: id, data: controller));
 
     _currentOverlay.add(IndexedData<OverlayEntry>(id: id, data: overlayEntry));
 
@@ -81,19 +86,23 @@ class DialogHelper {
   // Hide opened dialog with animation
   void hide(BuildContext context, {int? id}) {
     if (_currentCallback.length == 1 || id == null) {
-      ModalRoute.of(context)?.removeScopedWillPopCallback(onWillPop);
+      ModalRoute.of(context)?.unregisterPopEntry(this);
     }
 
-    _currentController.where((controller) => controller.id == id || id == null).forEach((controller) => controller.data.add(0.0));
+    _currentController
+        .where((controller) => controller.id == id || id == null)
+        .forEach((controller) => controller.data.add(0.0));
 
-    Future.delayed(DEFAULT_DURATION).then((_) => _hide(id)).catchError((error) {});
+    Future.delayed(DEFAULT_DURATION)
+        .then((_) => _hide(id))
+        .catchError((error) {});
   }
 
   // Hide opened dialog without animation, clear closable callback if any
   void hideImmediate(BuildContext context, {int? id}) {
     //reset back press handler
     if (_currentCallback.length == 1 || id == null) {
-      ModalRoute.of(context)?.removeScopedWillPopCallback(onWillPop);
+      ModalRoute.of(context)?.unregisterPopEntry(this);
     }
 
     _hide(id);
@@ -125,6 +134,21 @@ class DialogHelper {
     });
 
     _currentCallback.removeWhere((callback) => callback.id == id || id == null);
+  }
+
+  late final _canPopNotifier =
+      ValueNotifier<bool>(_currentCallback.length == 0);
+
+  @override
+  ValueListenable<bool> get canPopNotifier => _canPopNotifier;
+
+  @override
+  PopInvokedCallback? get onPopInvoked {
+    return (didPop) {
+      if (_currentCallback.length != 0) {
+        _currentCallback.last.data.call();
+      }
+    };
   }
 }
 

@@ -1,8 +1,14 @@
-## [0.2.2] - Add overlayColor param
+## [0.2.3]
+* Fix for Flutter 3.16.0
 
-## [0.2.1] - Fix: Web (thanks to Hadi)
+## [0.2.2]
+* Add overlayColor param
 
-## [0.2.0] - Migrate to null-safety
+## [0.2.1]
+* Fix: Web (thanks to Hadi)
+
+## [0.2.0]
+* Migrate to null-safety
 
 ## [0.1.0] - Add dialog id
 * Added id to dialog to open several dialogs at once
